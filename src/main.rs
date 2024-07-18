@@ -2,26 +2,10 @@ use core::fmt;
 use std::env;
 use std::fs;
 use std::io;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::process::ExitCode;
 
 const PROG_NAME: &str = "lwc";
-
-macro_rules! warning {
-    ($($arg:tt)*) => {{
-        if let Err(e) = write!(&mut io::stderr(), "\x1b[1;33mwarning\x1b[0m: {}", format_args!($($arg)*)) {
-            eprintln!("Failed to write warning to stderr: {}", e);
-        }
-    }};
-}
-
-macro_rules! error {
-    ($($arg:tt)*) => {{
-        if let Err(e) = write!(&mut io::stderr(), "\x1b[1;31merror\x1b[0m: {}", format_args!($($arg)*)) {
-            eprintln!("Failed to write error to stderr: {}", e);
-        }
-    }};
-}
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
@@ -41,23 +25,23 @@ fn main() -> ExitCode {
                 let metadata = f.metadata().unwrap();
                 let file_type = metadata.file_type();
                 if !file_type.is_file() {
-                    warning!("'{file}' is not a regular file!\n");
+                    println!("warning: '{file}' is not a regular file!\n");
                     continue;
                 }
                 f
             }
             Err(e) => {
                 if e.kind() == io::ErrorKind::NotFound {
-                    warning!("'{file}' not found!\n");
+                    println!("warning: '{file}' not found!\n");
                     continue;
                 }
-                error!("{e}");
+                eprintln!("{e}");
                 return ExitCode::FAILURE;
             }
         };
 
         let counter = Counter::cnt(&fhandle);
-        println!("\x1b[1;36m{}\x1b[0m: {}\n", file, counter);
+        println!("{}: {}\n", file, counter);
 
         total_lines += counter.lines;
         total_words += counter.words;
@@ -66,7 +50,7 @@ fn main() -> ExitCode {
     }
 
     println!(
-        "\x1b[1;32mTotal\x1b[0m: {} lines, {} words, {} characters, {} bytes",
+        "Total: {} lines, {} words, {} characters, {} bytes",
         total_lines, total_words, total_chars, total_bytes
     );
 
@@ -144,5 +128,5 @@ impl Counter {
 
 #[inline(always)]
 fn usage() {
-    println!("  Usage: {PROG_NAME} [file1] [file2] ...[file(n)]");
+    println!("usage: {PROG_NAME} [file1] [file2] ...[file(n)]");
 }
