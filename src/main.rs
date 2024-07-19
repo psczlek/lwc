@@ -5,12 +5,10 @@ use std::io;
 use std::io::{BufRead, BufReader};
 use std::process::ExitCode;
 
-const PROG_NAME: &str = "lwc";
-
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
     if args.len() == 1 {
-        usage();
+        usage(&args[0]);
         return ExitCode::SUCCESS;
     }
 
@@ -25,7 +23,7 @@ fn main() -> ExitCode {
                 let metadata = f.metadata().unwrap();
                 let file_type = metadata.file_type();
                 if !file_type.is_file() {
-                    println!("warning: '{file}' is not a regular file!\n");
+                    println!("'{file}': not a regular file! - SKIPPED\n");
                     continue;
                 }
                 f
@@ -41,7 +39,7 @@ fn main() -> ExitCode {
         };
 
         let counter = Counter::cnt(&fhandle);
-        println!("{}: {}\n", file, counter);
+        println!("{}: {}", file, counter);
 
         total_lines += counter.lines;
         total_words += counter.words;
@@ -68,13 +66,31 @@ struct Counter {
 impl fmt::Display for Counter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.lines == 0 && self.words == 0 && self.chars == 0 && self.bytes == 0 {
-            write!(f, "Empty")
+            write!(f, "<EMPTY>")
         } else {
-            write!(
-                f,
-                "\n  {} line(s)\n  {} word(s)\n  {} character(s)\n  {} byte(s)",
-                self.lines, self.words, self.chars, self.bytes
-            )
+            let cnts = [
+                (self.lines, "line(s)"),
+                (self.words, "word(s)"),
+                (self.chars, "character(s)"),
+                (self.bytes, "byte(s)"),
+            ];
+
+            let max_num_len = cnts
+                .iter()
+                .map(|&(num, _)| num.to_string().len())
+                .max()
+                .unwrap_or(0);
+
+            let mut output = String::new();
+            output.extend(cnts.iter().map(|&(num, label)| {
+                format!(
+                    "{num:>padding_left$} {label:>padding_rigth$}\n",
+                    padding_left = (num.to_string().len() + 2),
+                    padding_rigth = (max_num_len - num.to_string().len() + label.len()),
+                )
+            }));
+
+            write!(f, "\n{output}")
         }
     }
 }
@@ -127,6 +143,6 @@ impl Counter {
 }
 
 #[inline(always)]
-fn usage() {
-    println!("usage: {PROG_NAME} [file1] [file2] ...[file(n)]");
+fn usage(prog_name: &str) {
+    println!("usage: {prog_name} [file1] [file2] ...[file(n)]");
 }
