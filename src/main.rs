@@ -1,3 +1,4 @@
+use colored::*;
 use core::fmt;
 use std::env;
 use std::fs;
@@ -23,14 +24,20 @@ fn main() -> ExitCode {
                 let metadata = f.metadata().unwrap();
                 let file_type = metadata.file_type();
                 if !file_type.is_file() {
-                    println!("'{file}': not a regular file! - SKIPPED\n");
+                    println!(
+                        "{}: not a regular file! - SKIPPED\n",
+                        file.custom_color(CustomColor::new(42, 195, 222)).bold()
+                    );
                     continue;
                 }
                 f
             }
             Err(e) => {
                 if e.kind() == io::ErrorKind::NotFound {
-                    println!("warning: '{file}' not found!\n");
+                    println!(
+                        "warning: '{}' not found!\n",
+                        file.custom_color(CustomColor::new(42, 195, 222)).bold()
+                    );
                     continue;
                 }
                 eprintln!("{e}");
@@ -39,7 +46,11 @@ fn main() -> ExitCode {
         };
 
         let counter = Counter::cnt(&fhandle);
-        println!("{}: {}", file, counter);
+        println!(
+            "{}: {}",
+            file.custom_color(CustomColor::new(42, 195, 222)).bold(),
+            counter
+        );
 
         total_lines += counter.lines;
         total_words += counter.words;
@@ -49,7 +60,22 @@ fn main() -> ExitCode {
 
     println!(
         "Total: {} lines, {} words, {} characters, {} bytes",
-        total_lines, total_words, total_chars, total_bytes
+        total_lines
+            .to_string()
+            .custom_color(CustomColor::new(241, 163, 111))
+            .bold(),
+        total_words
+            .to_string()
+            .custom_color(CustomColor::new(241, 163, 111))
+            .bold(),
+        total_chars
+            .to_string()
+            .custom_color(CustomColor::new(241, 163, 111))
+            .bold(),
+        total_bytes
+            .to_string()
+            .custom_color(CustomColor::new(241, 163, 111))
+            .bold(),
     );
 
     ExitCode::SUCCESS
@@ -69,10 +95,10 @@ impl fmt::Display for Counter {
             write!(f, "<EMPTY>")
         } else {
             let cnts = [
-                (self.lines, "line(s)"),
-                (self.words, "word(s)"),
-                (self.chars, "character(s)"),
-                (self.bytes, "byte(s)"),
+                (self.lines, "line"),
+                (self.words, "word"),
+                (self.chars, "character"),
+                (self.bytes, "byte"),
             ];
 
             let max_num_len = cnts
@@ -83,10 +109,20 @@ impl fmt::Display for Counter {
 
             let mut output = String::new();
             output.extend(cnts.iter().map(|&(num, label)| {
+                let num_str = num
+                    .to_string()
+                    .custom_color(CustomColor::new(241, 163, 111))
+                    .bold();
+                let mut label = String::from(label);
+
+                if num > 1 {
+                    label.push('s');
+                }
+
                 format!(
-                    "{num:>padding_left$} {label:>padding_rigth$}\n",
-                    padding_left = (num.to_string().len() + 2),
-                    padding_rigth = (max_num_len - num.to_string().len() + label.len()),
+                    "{num_str:>padding_left$} {label:>padding_rigth$}\n",
+                    padding_left = (num_str.len() + 2),
+                    padding_rigth = (max_num_len - num_str.len() + label.len()),
                 )
             }));
 
