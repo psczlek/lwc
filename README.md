@@ -4,9 +4,18 @@ There's nothing to read about.
 
 ## Usage
 ```
-Usage: lwc [file1] [file2] ...[file(n)]
+A wc clone
 
-lwc some-file.file
-lwc some-f*
-lwc some-file1 some-file2 file12345
+Usage: lwc [OPTIONS] <ENTRIES>...
+
+Arguments:
+  <ENTRIES>...  Target files
+
+Options:
+  -r, --recursive       Traverse directories recursively
+  -o, --oneline         Display stats in one line
+  -f                    Count elements in a directory
+  -a, --absolute-paths  Print paths as absolute paths
+  -h, --help            Print help
+  -V, --version         Print version
 ```
