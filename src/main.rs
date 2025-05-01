@@ -1,184 +1,320 @@
+use clap::Parser;
 use colored::*;
-use core::fmt;
-use std::env;
+use lwc::counter::{Counter, DirStat, FileStat};
+use lwc::flag::Flag;
+use resolve_path::PathResolveExt;
+use std::fmt::Display;
 use std::fs;
-use std::io;
-use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
-    let args: Vec<String> = env::args().collect();
-    if args.len() == 1 {
-        usage(&args[0]);
-        return ExitCode::SUCCESS;
-    }
+    let flags = Flag::parse();
+    let counter = Counter::new();
 
-    let mut total_lines = 0;
-    let mut total_chars = 0;
-    let mut total_words = 0;
-    let mut total_bytes = 0;
+    if !flags.fflag {
+        let mut entries = flags.entries;
+        if flags.rflag {
+            let mut collected_entries = Vec::new();
 
-    for file in args.iter().skip(1) {
-        let fhandle = match fs::File::open(file) {
-            Ok(f) => {
-                let metadata = f.metadata().unwrap();
-                let file_type = metadata.file_type();
-                if !file_type.is_file() {
-                    println!(
-                        "{}: not a regular file! - SKIPPED\n",
-                        file.custom_color(CustomColor::new(42, 195, 222)).bold()
-                    );
-                    continue;
+            for entry in &entries {
+                let p = PathBuf::from(entry);
+                if p.is_dir() {
+                    collect_files(&p, &mut collected_entries);
+                } else {
+                    collected_entries.push(entry.clone());
                 }
-                f
             }
-            Err(e) => {
-                if e.kind() == io::ErrorKind::NotFound {
-                    println!(
-                        "warning: '{}' not found!\n",
-                        file.custom_color(CustomColor::new(42, 195, 222)).bold()
-                    );
-                    continue;
+
+            entries = collected_entries;
+        }
+
+        let mut total = TotalFileStat::default();
+        let stats = counter.fcounts(&entries);
+        for stat in stats.into_iter().flatten() {
+            file_stat_print(&stat, flags.oflag, flags.aflag);
+            total.lines += stat.lines;
+            total.words += stat.words;
+            total.chars += stat.chars;
+            total.bytes += stat.bytes;
+        }
+
+        println!("{total}");
+    } else {
+        let mut entries = flags.entries;
+        if flags.rflag {
+            let mut collected_entries = Vec::new();
+
+            for entry in &entries {
+                let p = PathBuf::from(entry);
+                if p.is_dir() {
+                    collect_entries(&p, &mut collected_entries);
+                } else {
+                    collected_entries.push(entry.clone());
                 }
-                eprintln!("{e}");
-                return ExitCode::FAILURE;
             }
-        };
 
-        let counter = Counter::cnt(&fhandle);
-        println!(
-            "{}: {}",
-            file.custom_color(CustomColor::new(42, 195, 222)).bold(),
-            counter
-        );
+            entries = collected_entries;
+        }
 
-        total_lines += counter.lines;
-        total_words += counter.words;
-        total_chars += counter.chars;
-        total_bytes += counter.bytes;
+        let mut total = TotalDirStat::default();
+        let stats = counter.dcounts(&entries);
+        for stat in stats.into_iter().flatten() {
+            dir_stat_print(&stat, flags.oflag, flags.aflag);
+            total.subdirs += stat.subdirs;
+            total.files += stat.files;
+            total.symlinks += stat.symlinks;
+            total.blocks += stat.blocks;
+            total.chars += stat.chars;
+            total.fifos += stat.fifos;
+            total.sockets += stat.sockets;
+        }
+
+        println!("{total}");
     }
-
-    println!(
-        "Total: {} lines, {} words, {} characters, {} bytes",
-        total_lines
-            .to_string()
-            .custom_color(CustomColor::new(241, 163, 111))
-            .bold(),
-        total_words
-            .to_string()
-            .custom_color(CustomColor::new(241, 163, 111))
-            .bold(),
-        total_chars
-            .to_string()
-            .custom_color(CustomColor::new(241, 163, 111))
-            .bold(),
-        total_bytes
-            .to_string()
-            .custom_color(CustomColor::new(241, 163, 111))
-            .bold(),
-    );
 
     ExitCode::SUCCESS
 }
 
-#[derive(Debug)]
-struct Counter {
+#[derive(Default)]
+struct TotalFileStat {
     lines: usize,
     chars: usize,
     words: usize,
     bytes: usize,
 }
 
-impl fmt::Display for Counter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.lines == 0 && self.words == 0 && self.chars == 0 && self.bytes == 0 {
-            write!(f, "<EMPTY>")
-        } else {
-            let cnts = [
-                (self.lines, "line"),
-                (self.words, "word"),
-                (self.chars, "character"),
-                (self.bytes, "byte"),
-            ];
+impl Display for TotalFileStat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "\n{} = {} lines, {} words, {} characters, {} bytes",
+            "Total".custom_color(CustomColor::new(36, 244, 123)),
+            self.lines
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+            self.words
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+            self.chars
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+            self.bytes
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+        )
+    }
+}
 
-            let max_num_len = cnts
-                .iter()
-                .map(|&(num, _)| num.to_string().len())
-                .max()
-                .unwrap_or(0);
+#[derive(Default)]
+struct TotalDirStat {
+    subdirs: usize,
+    files: usize,
+    symlinks: usize,
+    blocks: usize,
+    chars: usize,
+    fifos: usize,
+    sockets: usize,
+}
 
-            let mut output = String::new();
-            output.extend(cnts.iter().map(|&(num, label)| {
-                let num_str = num
-                    .to_string()
-                    .custom_color(CustomColor::new(241, 163, 111))
-                    .bold();
-                let mut label = String::from(label);
+impl Display for TotalDirStat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "\n{} = {} subdirs, {} files, {} symlinks, {} blocks {} chars {} fifos {} sockets",
+            "Total".custom_color(CustomColor::new(36, 244, 123)),
+            self.subdirs
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+            self.files
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+            self.symlinks
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+            self.blocks
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+            self.chars
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+            self.fifos
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+            self.sockets
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111)),
+        )
+    }
+}
 
-                if num > 1 {
-                    label.push('s');
-                }
+fn collect_files(dir: &Path, files: &mut Vec<String>) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                collect_files(&path, files);
+            } else if let Some(path_str) = path.to_str() {
+                files.push(path_str.to_string());
+            }
+        }
+    }
+}
 
+fn collect_entries(dir: &Path, entries: &mut Vec<String>) {
+    if let Ok(dir_entries) = fs::read_dir(dir) {
+        for entry in dir_entries.flatten() {
+            let path = entry.path();
+            if let Some(path_str) = path.to_str() {
+                entries.push(path_str.to_string());
+            }
+            if path.is_dir() {
+                collect_entries(&path, entries);
+            }
+        }
+    }
+}
+
+fn file_stat_print(stat: &FileStat, oneline: bool, absolute_paths: bool) {
+    if stat.lines == 0 && stat.words == 0 && stat.chars == 0 && stat.bytes == 0 {
+        println!(
+            "{}: -",
+            if !absolute_paths {
+                stat.path.custom_color(CustomColor::new(42, 195, 222))
+            } else {
+                stat.path
+                    .resolve()
+                    .to_str()
+                    .unwrap_or("Failed to resolve path")
+                    .custom_color(CustomColor::new(42, 195, 222))
+            },
+        );
+    } else {
+        let cnts = [
+            (stat.lines, "line"),
+            (stat.words, "word"),
+            (stat.chars, "character"),
+            (stat.bytes, "byte"),
+        ];
+
+        let max_num_len = cnts
+            .iter()
+            .map(|&(num, _)| num.to_string().len())
+            .max()
+            .unwrap_or(0);
+
+        let mut output = String::new();
+        output.extend(cnts.iter().map(|&(num, label)| {
+            let num_str = num
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111));
+            let mut label = String::from(label);
+
+            if num == 0 || num > 1 {
+                label.push('s');
+            }
+
+            if !oneline {
                 format!(
                     "{num_str:>padding_left$} {label:>padding_rigth$}\n",
                     padding_left = (num_str.len() + 2),
                     padding_rigth = (max_num_len - num_str.len() + label.len()),
                 )
-            }));
+            } else {
+                format!("{num_str} {label} ")
+            }
+        }));
 
-            write!(f, "\n{output}")
-        }
+        println!(
+            "{}:{}{}",
+            if !absolute_paths {
+                stat.path.custom_color(CustomColor::new(42, 195, 222))
+            } else {
+                stat.path
+                    .resolve()
+                    .to_str()
+                    .unwrap_or("Failed to resolve path")
+                    .custom_color(CustomColor::new(42, 195, 222))
+            },
+            if !oneline { "\n" } else { " " },
+            output
+        );
     }
 }
 
-impl Counter {
-    fn cnt(handle: &fs::File) -> Self {
-        let mut lines = 0;
-        let mut chars = 0;
-        let mut words = 0;
-        let mut bytes = 0;
+fn dir_stat_print(stat: &DirStat, oneline: bool, absolute_paths: bool) {
+    if stat.subdirs == 0
+        && stat.files == 0
+        && stat.symlinks == 0
+        && stat.blocks == 0
+        && stat.chars == 0
+        && stat.fifos == 0
+        && stat.sockets == 0
+    {
+        println!(
+            "{}: -",
+            if !absolute_paths {
+                stat.path.custom_color(CustomColor::new(42, 195, 222))
+            } else {
+                stat.path
+                    .resolve()
+                    .to_str()
+                    .unwrap_or("Failed to resolve path")
+                    .custom_color(CustomColor::new(42, 195, 222))
+            },
+        );
+    } else {
+        let cnts = [
+            (stat.subdirs, "subdir"),
+            (stat.files, "file"),
+            (stat.symlinks, "symlink"),
+            (stat.blocks, "block"),
+            (stat.chars, "char"),
+            (stat.fifos, "fifo"),
+            (stat.sockets, "socket"),
+        ];
 
-        let mut reader = BufReader::new(handle);
-        let mut line = String::new();
+        let max_num_len = cnts
+            .iter()
+            .map(|&(num, _)| num.to_string().len())
+            .max()
+            .unwrap_or(0);
 
-        while let Ok(len) = reader.read_line(&mut line) {
-            if len == 0 {
-                break;
+        let mut output = String::new();
+        output.extend(cnts.iter().map(|&(num, label)| {
+            let num_str = num
+                .to_string()
+                .custom_color(CustomColor::new(241, 163, 111));
+            let mut label = String::from(label);
+
+            if num == 0 || num > 1 {
+                label.push('s');
             }
 
-            lines += 1;
-            bytes += len;
-
-            let mut in_word = false;
-            for c in line.chars() {
-                chars += 1;
-
-                if c.is_whitespace() {
-                    if in_word {
-                        words += 1;
-                        in_word = false;
-                    }
-                } else {
-                    in_word = true;
-                }
+            if !oneline {
+                format!(
+                    "{num_str:>padding_left$} {label:>padding_rigth$}\n",
+                    padding_left = (num_str.len() + 2),
+                    padding_rigth = (max_num_len - num_str.len() + label.len()),
+                )
+            } else {
+                format!("{num_str} {label} ")
             }
-            if in_word {
-                words += 1;
-            }
+        }));
 
-            line.clear();
-        }
-
-        Counter {
-            lines,
-            chars,
-            words,
-            bytes,
-        }
+        println!(
+            "{}:{}{}",
+            if !absolute_paths {
+                stat.path.custom_color(CustomColor::new(42, 195, 222))
+            } else {
+                stat.path
+                    .resolve()
+                    .to_str()
+                    .unwrap_or("Failed to resolve path")
+                    .custom_color(CustomColor::new(42, 195, 222))
+            },
+            if !oneline { "\n" } else { " " },
+            output
+        );
     }
-}
-
-#[inline(always)]
-fn usage(prog_name: &str) {
-    println!("usage: {prog_name} [file1] [file2] ...[file(n)]");
 }
