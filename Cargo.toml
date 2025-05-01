@@ -1,12 +1,15 @@
 [package]
 name = "lwc"
-version = "1.0.0"
+version = "0.0.1"
+description = "A wc clone"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-colored = "2.1.0"
+colored = "3.0.0"
+resolve-path = "0.1.0"
+clap = { version = "4.5.37", features = ["derive"] }
 
 [profile.dev]
 opt-level = 0
@@ -16,8 +19,9 @@ lto = "off"
 codegen-units = 1
 
 [profile.release]
-opt-level = 3
+opt-level = 2
 debug = false
 strip = true
 lto = true
 codegen-units = 1
+panic = "abort"
