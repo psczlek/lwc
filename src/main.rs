@@ -11,9 +11,9 @@ use std::process::ExitCode;
 fn main() -> ExitCode {
     let flags = Flag::parse();
     let counter = Counter::new();
+    let mut entries = flags.entries;
 
     if !flags.fflag {
-        let mut entries = flags.entries;
         if flags.rflag {
             let mut collected_entries = Vec::new();
 
@@ -41,7 +41,6 @@ fn main() -> ExitCode {
 
         println!("{total}");
     } else {
-        let mut entries = flags.entries;
         if flags.rflag {
             let mut collected_entries = Vec::new();
 
