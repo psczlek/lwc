@@ -1,7 +1,7 @@
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(name = "lwc", version = "0.0.1", about = "A wc clone", long_about = None)]
+#[command(name = "lwc", version = "0.0.1", about = "A wc clone", long_about = None, next_line_help = true)]
 pub struct Flag {
     /// Target files
     #[arg(required = true)]
