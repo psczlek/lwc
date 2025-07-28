@@ -1,25 +1,19 @@
 [package]
 name = "lwc"
-version = "0.0.1"
-description = "A wc clone"
-edition = "2021"
+version = "1.0.0"
+description = "lines, words, chars, bytes, and directory elements counter"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 colored = "3.0.0"
-resolve-path = "0.1.0"
-clap = { version = "4.5.37", features = ["derive", "wrap_help"] }
-
-[profile.dev]
-opt-level = 0
-debug = true
-strip = false
-lto = "off"
-codegen-units = 1
+clap = { version = "4.5.41", features = ["derive"] }
+rayon = "1.10.0"
+walkdir = "2.5.0"
 
 [profile.release]
-opt-level = 2
+opt-level = 3
 debug = false
 strip = true
 lto = true
