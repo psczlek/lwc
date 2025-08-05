@@ -1,7 +1,10 @@
 use std::fmt::Display;
 use std::fs;
 use std::io::{self, BufRead, BufReader, Error, ErrorKind, Result};
+#[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
+#[cfg(windows)]
+use std::os::windows::fs::FileTypeExt;
 use std::path::Path;
 
 use clap::{ArgAction, Parser};
@@ -69,6 +72,8 @@ pub struct DirStat {
     pub chars: usize,
     pub fifos: usize,
     pub sockets: usize,
+    pub symlink_files: usize,
+    pub symlink_dirs: usize,
 }
 
 #[derive(Debug, Default)]
@@ -162,10 +167,18 @@ impl<P: AsRef<Path>> Dir<P> {
                 ft if ft.is_dir() => stat.subdirs += 1,
                 ft if ft.is_file() => stat.files += 1,
                 ft if ft.is_symlink() => stat.symlinks += 1,
+                #[cfg(unix)]
                 ft if ft.is_block_device() => stat.blocks += 1,
+                #[cfg(unix)]
                 ft if ft.is_char_device() => stat.chars += 1,
+                #[cfg(unix)]
                 ft if ft.is_fifo() => stat.fifos += 1,
+                #[cfg(unix)]
                 ft if ft.is_socket() => stat.sockets += 1,
+                #[cfg(windows)]
+                ft if ft.is_symlink_file() => stat.symlink_files += 1,
+                #[cfg(windows)]
+                ft if ft.is_symlink_dir() => stat.symlink_dirs += 1,
                 _ => {}
             }
         }
@@ -304,6 +317,8 @@ impl Display for DirStat {
             (self.chars, "char"),
             (self.fifos, "fifo"),
             (self.sockets, "socket"),
+            (self.symlink_files, "symlink files"),
+            (self.symlink_dirs, "symlink dirs"),
         ];
         write!(f, "{}", format_stats(&data))
     }
