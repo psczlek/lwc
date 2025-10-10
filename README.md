@@ -2,10 +2,10 @@
 
 `lwc` is a parallelized, directory-aware alternative to `wc`. It counts lines,
 words, characters, bytes, and filesystem elements, with content stats limited to
-valid UTF-8 files. That’s no problem for most use cases, but things might get a
+valid UTF-8 files. That's no problem for most use cases, but things might get a
 little freaky with binary files or text in certain Asian encodings.
 
-![lwc example](https://github.com/psczlek/lwc/blob/main/img/lwc.png)
+![lwc example](./img/lwc.png)
 
 ## Building
 
