@@ -105,7 +105,7 @@ pub fn count(args: Args) -> io::Result<()> {
     }
 
     if args.entries.is_some()
-        && (done.load(Ordering::Relaxed) > 1 || (args.quiet && done.load(Ordering::Relaxed) > 1))
+        && (done.load(Ordering::Relaxed) >= 1 || (args.quiet && done.load(Ordering::Relaxed) >= 1))
     {
         match total.lock() {
             Ok(total) => println!("{}{}", if args.quiet { "" } else { "\n" }, total),
