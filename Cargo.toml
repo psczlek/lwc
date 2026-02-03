@@ -1,14 +1,15 @@
 [package]
 name = "lwc"
-version = "1.0.1"
+version = "2.0.0"
 description = "lines, words, chars, bytes, and directory elements counter"
 edition = "2024"
 
 [dependencies]
-clap = { version = "4.5.52", features = ["derive"] }
+clap = { version = "4.5.57", features = ["derive"] }
 rayon = "1.11.0"
 walkdir = "2.5.0"
-colored = "3.0.0"
+tabled = "0.20.0"
+colored = "3.1.1"
 
 [profile.release]
 opt-level = 3
