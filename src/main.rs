@@ -1,17 +1,11 @@
-mod lwc;
+mod command;
+mod counter;
 
+use colored::Colorize;
 use std::process::ExitCode;
 
-use clap::Parser;
-use colored::Colorize;
-
 fn main() -> ExitCode {
-    let args = lwc::Args::parse();
-
-    colored::control::set_override(args.colors);
-
-    let result = lwc::count(args);
-    match result {
+    match command::run() {
         Ok(_) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}: {e}", "lwc".red());
