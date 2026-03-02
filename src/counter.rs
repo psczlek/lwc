@@ -175,7 +175,7 @@ pub fn file(path: impl AsRef<Path>) -> io::Result<FileStat> {
     let f = fs::File::open(&path)?;
     let reader = BufReader::with_capacity(16 * 1024, f);
 
-    Ok(read_lines(reader))
+    read_lines(reader)
 }
 
 pub fn dir(path: impl AsRef<Path>) -> io::Result<DirStat> {
@@ -215,16 +215,17 @@ pub fn dir(path: impl AsRef<Path>) -> io::Result<DirStat> {
     Ok(stat)
 }
 
-pub fn stdin() -> FileStat {
+pub fn stdin() -> io::Result<FileStat> {
     let reader = BufReader::new(io::stdin());
     read_lines(reader)
 }
 
-fn read_lines(mut reader: impl BufRead) -> FileStat {
+fn read_lines(mut reader: impl BufRead) -> io::Result<FileStat> {
     let mut stat = FileStat::new();
     let mut buf = String::new();
 
-    while let Ok(len) = reader.read_line(&mut buf) {
+    loop {
+        let len = reader.read_line(&mut buf)?;
         if len == 0 {
             break;
         }
@@ -237,5 +238,5 @@ fn read_lines(mut reader: impl BufRead) -> FileStat {
         buf.clear();
     }
 
-    stat
+    Ok(stat)
 }

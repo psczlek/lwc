@@ -133,7 +133,7 @@ pub fn run() -> io::Result<()> {
             print_stats(&stats, &args);
         }
         None => {
-            let stat = counter::stdin();
+            let stat = counter::stdin()?;
             print_stdin_stats(&stat, &args);
         }
     }
